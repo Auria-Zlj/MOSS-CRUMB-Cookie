@@ -6,7 +6,7 @@ A small interaction design piece, built for the web: the homepage of a seasonal 
 
 ## Overview
 
-A seasonal menu changes a shop's window every few months. This concept does the same for a website: the homepage is rebuilt around each season's limited cookies.
+A seasonal menu changes a shop's window every few months. This piece does the same for a website: the homepage is rebuilt around each season's limited cookies.
 
 The page is one scene, a cookie floating over a paper-cut clover garden. You learn about the cookies by touching them, not by reading a product list.
 
