@@ -1,6 +1,6 @@
 # Moss & Crumb
 
-Interaction design concept for a seasonal cookie shop's homepage. Autumn 2026, four flavours.
+A small interaction design piece, built for the web: the homepage of a seasonal cookie shop that you can play with. Autumn 2026, four flavours.
 
 ![Moss & Crumb demo](docs/demo.gif)
 
@@ -37,7 +37,7 @@ The page is one scene, a cookie floating over a paper-cut clover garden. You lea
 
 ## Built with
 
-Plain HTML, JavaScript and Canvas 2D in a single file. No framework, no build step.
+Designed and coded by hand in plain HTML, JavaScript and Canvas 2D. One file, no framework, no build step.
 
 ## Run
 
