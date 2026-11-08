@@ -307,7 +307,9 @@
     stageEl.style.setProperty('--sm', clamp((1 - VK) / .15, 0, 1).toFixed(3));
     { let fd = 40 * clamp((1 - VK) / .15, 0, 1); stageEl.style.setProperty('--fd', fd.toFixed(1) + 'px');
       const trEl = document.getElementById('tray'), room = ih - trEl.getBoundingClientRect().bottom;      // never let the tray hug the bottom edge of a short window
-      if (room < 26) { fd = Math.max(-6, fd - (26 - room) / VK); stageEl.style.setProperty('--fd', fd.toFixed(1) + 'px'); } }      // on a shrunk page the cookie tray drops 40 stage-px further from the grass; at full size it stays put
+      if (room < 26) { fd = Math.max(-6, fd - (26 - room) / VK); stageEl.style.setProperty('--fd', fd.toFixed(1) + 'px'); }
+      const room2 = ih - trEl.getBoundingClientRect().bottom;      // a very wide, short window: if the tray would still be cut off, slide the whole stage up
+      if (room2 < 14) { VY -= 14 - room2; stageEl.style.transform = `translate(${VX}px, ${VY}px) scale(${VK})`; } }      // on a shrunk page the cookie tray drops 40 stage-px further from the grass; at full size it stays put
     winSig = innerWidth + 'x' + innerHeight + '@' + devicePixelRatio;
     const wi = document.getElementById('winfo'); if (wi) wi.textContent = `window ${iw} × ${ih} · page scale ${VK.toFixed(2)}`;
     if (location.search.includes('size')) { let e = document.getElementById('sizebox'); if (!e) { e = document.createElement('div'); e.id = 'sizebox'; e.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:99;background:#222;color:#fff;font:600 16px system-ui;padding:8px 12px;border-radius:8px'; document.body.appendChild(e); } e.textContent = iw + ' × ' + ih + '  (scale ' + VK.toFixed(2) + ')'; }
