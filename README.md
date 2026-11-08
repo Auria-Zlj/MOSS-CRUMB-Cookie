@@ -1,34 +1,47 @@
 # Moss & Crumb
 
-A small playground: a seasonal-cookie homepage drawn on a single Canvas 2D page.
-Autumn 2026 · Season 03 · four flavours (Deep Cacao, Uji Dream, Cloud Taro, Sunny Lemon).
+Website for **Moss & Crumb**, a cookie shop whose homepage changes with the season.
 
-It's a concept piece. Nothing is sold, and the taste-note dots on the cards are placeholders.
+Each season the front page is re-themed around a limited run of cookies, the way a café rotates its seasonal menu. This repo has the current one: **Autumn 2026 · Season 03**, with four flavours that are only around until 20 December.
 
-## What to try
+| Flavour | |
+|---|---|
+| Deep Cacao | dark chocolate, sea salt |
+| Uji Dream | stone-ground matcha |
+| Cloud Taro | purple taro, white chocolate |
+| Sunny Lemon | lemon curd, fresh zest |
 
-- Tap the cookie. It crumbles and a little plant grows in the clover garden.
-- Pick another flavour from the tray at the bottom; each one grows its own plant.
-- Try all four, and a Taster Box rises at the garden's corner. Click it (or its Pre-order tag) to "pre-order".
-- The line at the bottom left shows how much of the season is left.
+## The seasonal homepage
 
-## Run it
+A cookie hangs above a paper-cut clover garden, with the season's cookies in a tray below it.
 
-The page is one static file, no build step. From the repo root:
+- **Tap the cookie** and it crumbles. A plant that belongs to that flavour grows in the garden: cocoa beans, tea buds, taro leaves, lemons.
+- **Pick a flavour** from the tray to bring a different cookie in. A handwritten note on the right shows its name, a short description, its taste notes (rated in dots), and a Pre-order link.
+- **Try all four flavours** and a Taster Box, one of each, appears at the corner of the garden. Its note replaces the flavour note.
+- The season is shown as a timeline at the bottom left, with a marker for how much of it is left.
+
+The page is drawn on a Canvas 2D element, and the whole layout scales to fit the window. Written for laptop and desktop screens; there is no phone layout yet. Pre-order is a stand-in: nothing is actually sold.
+
+## Running it
+
+The seasonal homepage is a single static file with no build step. From the repo root:
 
 ```bash
 python3 -m http.server 5174
 ```
 
-Then open <http://127.0.0.1:5174/prototype/season.html>.
+then open <http://127.0.0.1:5174/prototype/season.html>.
 
-The repo also holds the original Next.js app (`npm install && npm run dev`); the prototype is separate from it.
+The repo also contains the Next.js app (React, Three.js) that holds the shop's original 3D cookie hero:
 
-## Files
+```bash
+npm install
+npm run dev
+```
 
-- `prototype/season.html` – the page (canvas garden, note card, tray, box)
-- `prototype/moss.html` – the earlier base version
-- `public/image/` – cookie photos
-- `src/` – the Next.js app
+## What's where
 
-Made for laptop and desktop screens; there is no phone layout.
+- `prototype/season.html`: the seasonal homepage
+- `prototype/moss.html`: the earlier grass version it grew out of
+- `src/`: the Next.js app and its 3D cookie hero
+- `public/image/`: cookie photos
