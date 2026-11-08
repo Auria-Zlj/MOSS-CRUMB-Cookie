@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Moss — brush prototype</title>
+<style>
+  :root { --paper:#F1EDE4; --ink:#2B2A26; }
+  html,body { margin:0; height:100%; background:var(--paper); overflow:hidden; color:var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", sans-serif; }
+  canvas { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; cursor:default; }
+  /* diffuse grain, shared by the paper, the haze and the cookie */
+  .grain { position:fixed; inset:0; pointer-events:none; opacity:.55; mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .36  0 0 0 0 .33  0 0 0 0 .27  0 0 0 .6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+  .mark, .tag, .hint { position:fixed; font-size:11px; letter-spacing:.16em; text-transform:uppercase; pointer-events:none; user-select:none; }
+  .mark { top:28px; left:32px; }
+  .tag  { top:28px; right:32px; text-align:right; opacity:.7; }
+  .hint { bottom:30px; left:0; right:0; text-align:center; opacity:.55; transition:opacity .8s; }
+  .hint.gone { opacity:0; }
+  #panel { position:fixed; left:20px; bottom:20px; background:rgba(241,237,228,.92); border:1px solid rgba(43,42,38,.18);
+    padding:12px 14px; font-size:11px; display:none; gap:6px; flex-direction:column; width:210px; }
+  #panel.on { display:flex; }
+  #panel label { display:flex; justify-content:space-between; gap:8px; align-items:center; }
+  #panel input { width:110px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="grain"></div>
+<div class="mark">Moss &amp; Crumb</div>
+<div class="tag" id="tag">No.01 — Cacao</div>
+<div class="hint" id="hint">tap the cookie · brush the moss · 1 2 3 swap cookie · D to tune</div>
+<div id="panel"></div>
+
+<script>
+(() => {
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---- tunables (press D to open the panel) -------------------------------
+  const P = { stiffness: 95, damping: 8.5, radius: 120, strength: 1, wind: reduce ? 0 : 1, boil: reduce ? 0 : 9, count: 6800, maxFlowers: 28 };
+
+  // five different greens (not one green at five brightnesses): deep forest / olive / fresh yellow-green / cool sage-teal / light leaf
+  const COLORS = ['#3E5530', '#6A7F3F', '#88A446', '#5F8C6A', '#A2B85E'];
+  const WIDTHS = [1.1, 1.9];
+  const PETALS = ['#FBF6E6', '#F7DE8A', '#F3CFC6', '#CDBBE6', '#F1A08A', '#A9C2EC'];
+  const KIND_COLS = { round: PETALS, daisy: ['#FBF6E6', '#FBF6E6', '#F7DE8A', '#F3CFC6'], tulip: ['#F1A08A', '#F3CFC6', '#F7DE8A', '#CDBBE6'], cluster: ['#CDBBE6', '#FBF6E6', '#A9C2EC'], star: ['#F3CFC6', '#F1A08A', '#CDBBE6'] };
+  const COOKIES = [
+    { file: 'doublecoco', label: 'No.01 — Cacao' },
+    { file: 'butter',     label: 'No.02 — Butter' },
+    { file: 'taro',       label: 'No.03 — Taro' },
+  ];
+
+  let W, H, DPR, S, t = 0;
+  let blades = [], groups = [], mound = null, particles = [], flowers = [], crumbs = [], pending = [];
+  const cookie = { crop: null, x: 0, base: 0, r: 0, oy: 0, vy: 0, ang: 0, av: 0, sq: 0, sqv: 0, idx: 0, dropped: false };
+  const ptr = { x: -9999, y: -9999, vx: 0, vy: 0, active: false, lx: 0, ly: 0, lt: 0 };
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  // ---- layout / build -----------------------------------------------------
+  function resize() {
+    DPR = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    cv.width = W * DPR; cv.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    S = clamp(Math.min(W, H) / 820, 0.55, 1.25);
+    build();
+  }
+
+  const yMap = s => s < 0 ? s * 1.6 : s;     // back half of the patch rises → reads as a dome, and gets blades too
+  const edge = th => 1 + 0.10 * Math.sin(3 * th + 1.3) + 0.06 * Math.sin(5 * th + 0.4) + 0.04 * Math.sin(9 * th + 2.1);
+
+  function build() {
+    const cx = W / 2, cy = H * 0.6;
+    const RX = Math.min(W * 0.34, 470 * S), RY = Math.min(H * 0.15, 140 * S);
+    mound = { cx, cy, RX, RY };
+    cookie.x = cx; cookie.base = cy + RY * 0.02; cookie.r = Math.min(W, H) * 0.16;
+
+    blades = []; flowers = []; crumbs = []; pending = [];
+    groups = [0, 1].map(() => ({ b: Array.from({ length: COLORS.length * 2 }, () => []), sprouts: [] }));
+    const mk = (o) => {
+      o.ox = 0; o.vx = 0; o.tx = o.rx; o.ty = o.ry - o.h; o.qx = o.rx; o.qy = o.ry - o.h * .6;
+      o.j = new Float32Array(12); for (let i = 0; i < 12; i++) o.j[i] = rnd(-1.25, 1.25) * S;
+      o.k = rnd(.8, 1.25); o.cd = rnd(.85, 1.2); o.ph = rnd(0, 6.28);
+      o.flex = clamp(o.h / (14 * S), .6, 2.2);
+      blades.push(o);
+      const g = groups[o.ry > cookie.base - 6 * S ? 1 : 0];
+      if (o.sprout) g.sprouts.push(o); else g.b[o.c * 2 + o.w].push(o);
+    };
+
+    // colour picking: weighted random, a slow colour "weather" across the patch, and depth (back = deeper/cooler, front = lighter/fresher)
+    const WT = [.2, .3, .2, .15, .15];
+    const pickC = () => { let r = Math.random(), i = 0; while (i < 4 && r > WT[i]) { r -= WT[i]; i++; } return i; };
+    const zoneC = (x, y) => clamp(Math.floor((Math.sin(x * .007 + 1) + Math.sin(y * .012 + 2) + Math.sin((x + y) * .004) + 3) / 6 * 5), 0, 4);
+    // uneven density: lush clumps with thin ground in between
+    const clumps = Array.from({ length: 13 }, () => { const th = rnd(0, 6.283), r = Math.sqrt(Math.random()) * .85; return { x: cx + Math.cos(th) * RX * r, y: cy + yMap(Math.sin(th)) * RY * r, s: rnd(.12, .26) }; });
+    const dens = (x, y) => { let d = .16; for (const c of clumps) { const dx = (x - c.x) / RX, dy = (y - c.y) / (RY * 1.3); d = Math.max(d, Math.exp(-(dx * dx + dy * dy) / (2 * c.s * c.s))); } return d; };
+    const spot = () => {
+      let s;
+      for (let k = 0; k < 40; k++) {
+        const th = rnd(0, Math.PI * 2), r = Math.sqrt(Math.random()), e = edge(th);
+        s = { x: cx + Math.cos(th) * RX * r * e, y: cy + yMap(Math.sin(th)) * RY * r * e, th, r };
+        if (Math.random() < dens(s.x, s.y)) break;
+      }
+      return s;
+    };
+    const toneAt = s => Math.random() < .35 ? (Math.sin(s.th) < 0 ? (Math.random() < .5 ? 0 : 3) : (Math.random() < .5 ? 2 : 4)) : Math.random() < .5 ? zoneC(s.x, s.y) : pickC();
+
+    // 1) short tufts: a centre point, blades fanning out from it
+    const tufts = Math.round(P.count / 16);
+    for (let i = 0; i < tufts; i++) {
+      const s0 = spot(), baseH = (8 + (1 - s0.r * s0.r) * 15) * S, tone = toneAt(s0);      // domed: taller in the middle
+      const n = 11 + Math.floor(Math.random() * 9);
+      for (let j = 0; j < n; j++) {
+        const ang = rnd(-1.0, 1.0) + Math.cos(s0.th) * s0.r * .35, len = baseH * rnd(.7, 1.4);
+        mk({ rx: s0.x + rnd(-5, 5) * S, ry: s0.y + rnd(-3, 3) * S, h: Math.max(5 * S, Math.cos(ang) * len), lean: Math.sin(ang) * len,
+             curv: rnd(-.7, .7), c: Math.random() < .55 ? tone : pickC(), w: Math.random() < .55 ? 0 : 1 });
+      }
+    }
+    // 2) arching sedge: medium blades that all bow the same way
+    for (let i = 0; i < 34; i++) {
+      const s0 = spot(), c = toneAt(s0), n = 5 + Math.floor(Math.random() * 4), sd = rnd(-1, 1);
+      for (let j = 0; j < n; j++) {
+        const len = rnd(20, 36) * S, ang = sd * .55 + rnd(-.45, .45);
+        mk({ rx: s0.x + rnd(-4, 4) * S, ry: s0.y + rnd(-2, 2) * S, h: Math.cos(ang) * len * .8, lean: Math.sin(ang) * len * 1.1, curv: (sd >= 0 ? 1 : -1) * rnd(.6, 1.3), c, w: 1 });
+      }
+    }
+    // 3) tall slender grass, kept off the cookie's face
+    for (let i = 0; i < 26; i++) {
+      const s0 = spot(); if (Math.abs(s0.x - cx) < cookie.r * 1.15 && s0.y > cookie.base - 6 * S) continue;
+      const c = toneAt(s0), n = 4 + Math.floor(Math.random() * 3);
+      for (let j = 0; j < n; j++) {
+        const len = rnd(42, 80) * S, ang = rnd(-.35, .35);
+        mk({ rx: s0.x + rnd(-4, 4) * S, ry: s0.y + rnd(-2, 2) * S, h: Math.cos(ang) * len, lean: Math.sin(ang) * len, curv: rnd(-.9, .9), c, w: 0 });
+      }
+    }
+    for (let i = 0; i < 16; i++) {           // little spore sprouts, back half only
+      let th, r; do { th = rnd(0, Math.PI * 2); } while (Math.sin(th) > .15);
+      r = rnd(.2, .85);
+      mk({ rx: cx + Math.cos(th) * RX * r * edge(th), ry: cy + yMap(Math.sin(th)) * RY * r * edge(th),
+           h: rnd(52, 84) * S, lean: rnd(-8, 8) * S, curv: rnd(-.5, .5), c: 0, w: 0, sprout: true });
+    }
+    for (const g of groups) g.sprouts.forEach(s => s.flex *= 1.5);
+  }
+
+  // ---- cookie loading (crop to alpha bbox) --------------------------------
+  function loadCookie(i) {
+    cookie.idx = i; cookie.crop = null; cookie.dropped = false;
+    document.getElementById('tag').textContent = COOKIES[i].label;
+    const im = new Image();
+    im.onload = () => {
+      const oc = document.createElement('canvas'); oc.width = im.naturalWidth; oc.height = im.naturalHeight;
+      const oc2 = oc.getContext('2d'); oc2.drawImage(im, 0, 0);
+      const d = oc2.getImageData(0, 0, oc.width, oc.height).data;
+      let x0 = oc.width, y0 = oc.height, x1 = 0, y1 = 0;
+      for (let y = 0; y < oc.height; y += 3) for (let x = 0; x < oc.width; x += 3) {
+        if (d[(y * oc.width + x) * 4 + 3] > 90) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      }
+      if (x1 <= x0) { x0 = 0; y0 = 0; x1 = oc.width; y1 = oc.height; }
+      cookie.crop = { im, sx: x0, sy: y0, sw: x1 - x0, sh: y1 - y0 };
+      startDrop();
+    };
+    im.src = `/public/image/${COOKIES[i].file}.png`;
+  }
+
+  function startDrop() {
+    cookie.ang = 0; cookie.av = 0; cookie.sq = 0; cookie.sqv = 0; cookie.vy = 0;
+    cookie.oy = reduce ? 0 : -H * 0.6;
+    cookie.dropped = reduce;
+  }
+
+  // ---- impulses -----------------------------------------------------------
+  function burst(x, y, R, str, spores) {
+    for (const b of blades) {
+      const dx = b.tx - x, dy = b.ty - y, d = Math.hypot(dx, dy) + .001;
+      if (d < R) { const f = 1 - d / R; b.vx += (dx / d) * str * f * f * b.flex; }
+    }
+    for (const b of flowers) {
+      const dx = b.tx - x, dy = b.ty - y, d = Math.hypot(dx, dy) + .001;
+      if (d < R) { const f = 1 - d / R; b.vx += (dx / d) * str * f * f * b.flex; }
+    }
+    for (let i = 0; i < spores; i++) {
+      particles.push({ x: x + rnd(-30, 30) * S, y: y + rnd(-6, 6), vx: rnd(-90, 90), vy: rnd(-220, -80), life: 1, r: rnd(1.5, 3.2) * S });
+    }
+  }
+
+  // ---- tap the cookie: crumbs break off, land in the grass, a flower blooms there ----
+  function makeCrumb() {
+    const c = cookie.crop, k = c.sw / (cookie.r * 2), cs = rnd(11, 18) * S, sd = DPR;
+    const px = c.sx + c.sw * (.5 + rnd(-.3, .3)), py = c.sy + c.sh * (.5 + rnd(-.3, .3)), size = Math.ceil(cs * 1.6);
+    const oc = document.createElement('canvas'); oc.width = oc.height = Math.ceil(size * sd);
+    const g = oc.getContext('2d'); g.scale(sd, sd); g.translate(size / 2, size / 2);
+    const n = 7 + Math.floor(Math.random() * 3); g.beginPath();
+    for (let i = 0; i < n; i++) { const a = i / n * 6.283 + rnd(-.25, .25), rr = cs / 2 * rnd(.6, 1.05); i ? g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : g.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+    g.closePath(); g.save(); g.clip(); const sz = size * k; g.drawImage(c.im, px - sz / 2, py - sz / 2, sz, sz, -size / 2, -size / 2, size, size); g.restore();
+    g.lineJoin = 'round'; g.lineWidth = 1.3; g.strokeStyle = 'rgba(28,13,6,.5)'; g.stroke();
+    return { sp: oc, w: size, h: size };
+  }
+  function pickSpot() {                       // emptiest spot of the patch, never hidden behind the cookie
+    const { cx, cy, RX, RY } = mound, cb = cookie.base, cr = cookie.r;
+    let best = null, bs = -1;
+    for (let i = 0; i < 22; i++) {
+      const th = rnd(0, 6.283), r = Math.sqrt(Math.random()) * 1.15, e = edge(th);      // r > 1 = just outside the patch
+      const x = cx + Math.cos(th) * RX * r * e, y = cy + yMap(Math.sin(th)) * RY * r * e;
+      if (x < 40 || x > W - 40 || y > H - 70 * S) continue;
+      if (Math.abs(x - cx) < cr * 1.05 && y < cb + 4 * S && y > cb - cr * 2.2) continue;
+      let m = 1e9;
+      for (const f of flowers) if (!f.dying) m = Math.min(m, Math.hypot(x - f.rx, (y - f.ry) * 1.6));
+      for (const c of crumbs) m = Math.min(m, Math.hypot(x - c.tx, (y - c.ty) * 1.6));
+      if (m > bs) { bs = m; best = { x, y, out: r * e > 1.02 }; }
+    }
+    return best || { x: cx + rnd(-.6, .6) * RX, y: cy + RY * .4, out: false };
+  }
+  function tapCookie() {
+    if (!cookie.crop || !cookie.dropped) return;
+    const n = 2 + (Math.random() < .4 ? 1 : 0);
+    for (let i = 0; i < n; i++) pending.push(t + .04 + i * .13);
+    cookie.sqv = -2.4; cookie.av += rnd(-.8, .8);
+  }
+  function launchCrumb() {
+    // 1) breaks off the cookie surface and floats out  2) hangs in the air a moment  3) drops straight down onto its spot
+    const sp = pickSpot(), fall = rnd(70, 115) * S, hx = sp.x + rnd(-8, 8) * S, hy = sp.y - fall, g = 1700;
+    const x0 = cookie.x + clamp((hx - cookie.x) * .4, -cookie.r * .7, cookie.r * .7) + rnd(-.2, .2) * cookie.r, y0 = cookie.base - cookie.r * rnd(.5, 1.3);
+    const T1 = rnd(.28, .38), T2 = rnd(.14, .3), T3 = Math.sqrt(2 * fall / g);
+    crumbs.push({ ...makeCrumb(), out: sp.out, x0, y0, hx, hy, T1, T2, T3, g, tx: sp.x, ty: sp.y, T: T1 + T2 + T3, t0: t, x: x0, y: y0, sc: .55, rot: rnd(0, 6.28), vr: rnd(-2.5, 2.5), land: 0 });
+  }
+  function bloom(x, y, out) {
+    const live = flowers.filter(f => !f.dying);
+    if (live.length >= P.maxFlowers) live[0].dying = t;
+    const tuft = out ? Array.from({ length: 5 }, (_, i) => ({ dx: (i - 2) * 3.4 * S + rnd(-1, 1) * S, len: rnd(8, 15) * S, curv: rnd(-1, 1), c: i % 3 })) : null;   // a few blades under flowers that sprout outside the patch
+    const kr = Math.random(), kind = kr < .3 ? 'round' : kr < .55 ? 'daisy' : kr < .7 ? 'tulip' : kr < .88 ? 'cluster' : 'star';
+    const size = { round: [4.6, 6.6], daisy: [5.5, 7.5], tulip: [4.2, 5.6], cluster: [3.6, 5], star: [5, 6.8] }[kind], cols = KIND_COLS[kind];
+    flowers.push({ tuft, kind, rx: x, ry: y, h: (kind === 'cluster' ? rnd(22, 40) : kind === 'tulip' ? rnd(26, 44) : rnd(30, 58)) * S, lean: rnd(-8, 8) * S, curv: rnd(-.5, .5), ox: 0, vx: 0, k: rnd(.8, 1.1), cd: 1, flex: 1.5, ph: rnd(0, 6.28),
+      g: 0, gv: 5, s: rnd(size[0], size[1]) * S, col: cols[Math.floor(Math.random() * cols.length)], dying: 0, tx: x, ty: y, qx: x, qy: y });
+  }
+
+  // ---- simulation ---------------------------------------------------------
+  function update(dt) {
+    const R = P.radius * S, k0 = P.stiffness, c0 = P.damping, wind = P.wind;
+    ptr.vx *= Math.pow(.9, dt * 60); ptr.vy *= Math.pow(.9, dt * 60);
+
+    for (const b of blades) {
+      let a = -k0 * b.k * b.ox - c0 * b.cd * b.vx;
+      a += wind * 170 * b.flex * Math.sin(t * 1.1 + b.rx * .008 + b.ph * .4) + wind * 60 * Math.sin(t * 2.7 + b.ph);
+      if (ptr.active) {
+        const dx = b.tx - ptr.x, dy = b.ty - ptr.y, d2 = dx * dx + dy * dy;
+        if (d2 < R * R) {
+          const d = Math.sqrt(d2) + .001, f = (1 - d / R) ** 2;
+          a += b.flex * P.strength * (900 * (dx / d) * f + 5 * ptr.vx * f);
+        }
+      }
+      b.vx += a * dt; b.ox += b.vx * dt;
+      const lim = b.h * 1.5 + 6 * S; if (b.ox > lim) { b.ox = lim; b.vx *= .3; } else if (b.ox < -lim) { b.ox = -lim; b.vx *= .3; }
+      const bend = Math.min(1, Math.abs(b.ox) / (b.h + 4 * S));
+      b.tx = b.rx + b.lean + b.ox;
+      b.ty = b.ry - b.h * (1 - .4 * bend * bend);
+      b.qx = b.rx + b.lean * .3 + b.ox * .35 + b.curv * b.h * .3;
+      b.qy = b.ry - b.h * .62;
+    }
+
+    for (let i = pending.length - 1; i >= 0; i--) if (t >= pending[i]) { pending.splice(i, 1); launchCrumb(); }
+    for (let i = crumbs.length - 1; i >= 0; i--) {
+      const c = crumbs[i];
+      if (!c.land) {
+        const tt = t - c.t0; c.rot += c.vr * dt;
+        if (tt < c.T1) { const u = tt / c.T1, e = 1 - (1 - u) ** 3; c.x = c.x0 + (c.hx - c.x0) * e; c.y = c.y0 + (c.hy - c.y0) * e; c.sc = .55 + .45 * e; }
+        else if (tt < c.T1 + c.T2) { const u = (tt - c.T1) / c.T2; c.x = c.hx; c.y = c.hy - 3 * S * Math.sin(Math.PI * u); c.sc = 1; }
+        else { const f = Math.min(c.T3, tt - c.T1 - c.T2); c.x = c.hx + (c.tx - c.hx) * f / c.T3; c.y = c.hy + .5 * c.g * f * f; c.sc = 1; }
+        if (tt >= c.T) { c.x = c.tx; c.y = c.ty; c.land = t; bloom(c.tx, c.ty, c.out); burst(c.tx, c.ty - 6 * S, 80 * S, 360, 4); }
+      } else if (t - c.land > .3) crumbs.splice(i, 1);
+    }
+    for (let i = flowers.length - 1; i >= 0; i--) {
+      const f = flowers[i];
+      let a = -k0 * f.k * f.ox - c0 * f.cd * f.vx + wind * 90 * f.flex * Math.sin(t * 1.1 + f.rx * .008 + f.ph * .4);
+      if (ptr.active) {
+        const dx = f.tx - ptr.x, dy = f.ty - ptr.y, d2 = dx * dx + dy * dy;
+        if (d2 < R * R) { const d = Math.sqrt(d2) + .001, q = (1 - d / R) ** 2; a += f.flex * P.strength * (900 * (dx / d) * q + 5 * ptr.vx * q); }
+      }
+      f.vx += a * dt; f.ox += f.vx * dt;
+      const lim = f.h * 1.2 + 6 * S; if (f.ox > lim) { f.ox = lim; f.vx *= .3; } else if (f.ox < -lim) { f.ox = -lim; f.vx *= .3; }
+      f.gv += (200 * ((f.dying ? 0 : 1) - f.g) - 12 * f.gv) * dt; f.g += f.gv * dt;      // springs past 1 → little overshoot pop
+      const bend = Math.min(1, Math.abs(f.ox) / (f.h + 4 * S)), h = f.h * Math.max(0, f.g);
+      f.tx = f.rx + f.lean * f.g + f.ox; f.ty = f.ry - h * (1 - .4 * bend * bend);
+      f.qx = f.rx + f.lean * .3 + f.ox * .35 + f.curv * h * .3; f.qy = f.ry - h * .62;
+      if (f.dying && f.g < .03) flowers.splice(i, 1);
+    }
+
+    // cookie: drop → land → rock
+    if (!cookie.dropped && cookie.crop) {
+      cookie.vy += 2600 * dt; cookie.oy += cookie.vy * dt;
+      if (cookie.oy >= 0) {
+        cookie.oy = 0;
+        if (cookie.vy > 220) {
+          const cy = cookie.base - cookie.r * .15;
+          burst(cookie.x, cy, cookie.r * 2.2 + 140 * S, 1100, 12);
+          cookie.sqv = -3.2; cookie.av = rnd(-.5, .5);
+          cookie.vy = -cookie.vy * .28;
+        } else { cookie.vy = 0; cookie.dropped = true; }
+      }
+    }
+    cookie.sqv += (-170 * cookie.sq - 11 * cookie.sqv) * dt; cookie.sq += cookie.sqv * dt;
+    cookie.av += (-70 * cookie.ang - 5.5 * cookie.av) * dt;
+    if (ptr.active && cookie.crop) {
+      const cdx = ptr.x - cookie.x, cdy = ptr.y - (cookie.base - cookie.r * .8);
+      if (Math.hypot(cdx, cdy) < cookie.r * 1.1) cookie.av += clamp(ptr.vx * .0007, -.3, .3);
+    }
+    cookie.av = clamp(cookie.av, -4, 4);
+    cookie.ang = clamp(cookie.ang + cookie.av * dt, -.32, .32);
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i]; p.vy += 260 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt * .7;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+  }
+
+  // ---- render -------------------------------------------------------------
+  function drawGroup(g, set) {
+    ctx.lineCap = 'round';
+    const j = set * 4;
+    for (let bi = 0; bi < g.b.length; bi++) {
+      const arr = g.b[bi]; if (!arr.length) continue;
+      ctx.beginPath();
+      for (const b of arr) { ctx.moveTo(b.rx, b.ry); ctx.quadraticCurveTo(b.qx + b.j[j], b.qy + b.j[j + 1], b.tx + b.j[j + 2], b.ty + b.j[j + 3]); }
+      ctx.strokeStyle = COLORS[bi >> 1]; ctx.lineWidth = WIDTHS[bi & 1] * S; ctx.stroke();
+    }
+    if (g.sprouts.length) {
+      ctx.strokeStyle = COLORS[0]; ctx.lineWidth = 1.3 * S;
+      ctx.beginPath();
+      for (const b of g.sprouts) { ctx.moveTo(b.rx, b.ry); ctx.quadraticCurveTo(b.qx + b.j[j], b.qy + b.j[j + 1], b.tx + b.j[j + 2], b.ty + b.j[j + 3]); }
+      ctx.stroke();
+      ctx.fillStyle = '#F6F1E3'; ctx.lineWidth = 1.1 * S;
+      for (const b of g.sprouts) { ctx.beginPath(); ctx.arc(b.tx + b.j[j + 2], b.ty + b.j[j + 3], 3.4 * S, 0, 6.283); ctx.fill(); ctx.stroke(); }
+    }
+  }
+
+  function drawFlower(f) {
+    if (f.g < .02) return;
+    ctx.lineCap = 'round';
+    if (f.tuft) for (const b of f.tuft) {
+      const gg = Math.max(0, Math.min(1, f.g)), l = b.len * gg;
+      ctx.strokeStyle = COLORS[b.c]; ctx.lineWidth = 1.6 * S; ctx.beginPath(); ctx.moveTo(f.rx + b.dx, f.ry);
+      ctx.quadraticCurveTo(f.rx + b.dx * 1.6 + b.curv * 4 * S + f.ox * .15, f.ry - l * .6, f.rx + b.dx * 2.2 + b.curv * 7 * S + f.ox * .3, f.ry - l); ctx.stroke();
+    }
+    ctx.strokeStyle = COLORS[1]; ctx.lineWidth = 1.5 * S;
+    ctx.beginPath(); ctx.moveTo(f.rx, f.ry); ctx.quadraticCurveTo(f.qx, f.qy, f.tx, f.ty); ctx.stroke();
+    const s = f.s * Math.max(0, f.g);
+    ctx.save(); ctx.translate(f.tx, f.ty); ctx.rotate(f.ox * .012 + f.lean * .02);
+    ctx.fillStyle = f.col; ctx.strokeStyle = 'rgba(70,80,35,.35)'; ctx.lineWidth = 1 * S;
+    const petal = (rot, cx0, cy0, rx, ry) => { ctx.save(); ctx.rotate(rot); ctx.beginPath(); ctx.ellipse(cx0, cy0, rx, ry, 0, 0, 6.283); ctx.fill(); ctx.stroke(); ctx.restore(); };
+    const dot = (x0, y0, r0, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x0, y0, r0, 0, 6.283); ctx.fill(); };
+    if (f.kind === 'daisy') {                                   // many thin petals
+      for (let i = 0; i < 10; i++) petal(i / 10 * 6.283, 0, -s * .8, s * .2, s * .62);
+      dot(0, 0, s * .42, '#E7A92E');
+    } else if (f.kind === 'tulip') {                            // upright cup of three petals
+      petal(-.5, -s * .1, -s * .75, s * .4, s * .85); petal(.5, s * .1, -s * .75, s * .4, s * .85); petal(0, 0, -s * .85, s * .42, s * .95);
+    } else if (f.kind === 'cluster') {                          // a little knot of tiny blossoms
+      for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; ctx.fillStyle = f.col; ctx.beginPath(); ctx.arc(Math.cos(a) * s * .6, Math.sin(a) * s * .6, s * .42, 0, 6.283); ctx.fill(); ctx.stroke(); }
+      dot(0, 0, s * .45, f.col); dot(0, 0, s * .2, '#E7C45A');
+    } else if (f.kind === 'star') {                             // five long pointed petals
+      for (let i = 0; i < 5; i++) petal(i / 5 * 6.283, 0, -s * .85, s * .3, s * .85);
+      dot(0, 0, s * .34, '#E7A92E');
+    } else {                                                    // round five-petal
+      for (let i = 0; i < 5; i++) { const a = i / 5 * 6.283 - 1.57; ctx.beginPath(); ctx.arc(Math.cos(a) * s * .95, Math.sin(a) * s * .95, s * .72, 0, 6.283); ctx.fill(); ctx.stroke(); }
+      dot(0, 0, s * .55, '#E7A92E');
+    }
+    ctx.restore();
+  }
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    const { cx, cy, RX, RY } = mound;
+
+    // haze: a soft sage light behind the patch
+    let g = ctx.createRadialGradient(cx, cy - RY * .6, 0, cx, cy - RY * .6, Math.max(W, H) * .42);
+    g.addColorStop(0, 'rgba(206,216,170,.55)'); g.addColorStop(1, 'rgba(206,216,170,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    // ground shadow
+    ctx.save(); ctx.translate(cx, cy + RY * .75); ctx.scale(1, .22);
+    g = ctx.createRadialGradient(0, 0, 0, 0, 0, RX * 1.05);
+    g.addColorStop(0, 'rgba(60,70,40,.28)'); g.addColorStop(1, 'rgba(60,70,40,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, RX * 1.05, 0, 6.283); ctx.fill(); ctx.restore();
+
+    // mound body
+    ctx.beginPath();
+    for (let a = 0; a <= 6.4; a += .1) {
+      const e = edge(a) * .95, x = cx + Math.cos(a) * RX * e, y = cy + yMap(Math.sin(a)) * RY * e;
+      a === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath(); ctx.fillStyle = 'rgba(108,126,66,.42)'; ctx.fill();
+
+    const set = P.boil > 0 ? Math.floor(t * P.boil) % 3 : 0;
+    drawGroup(groups[0], set);
+    for (const f of flowers) if (f.ry <= cookie.base - 6 * S) drawFlower(f);
+
+    if (cookie.crop) {
+      const c = cookie.crop, dw = cookie.r * 2, dh = dw * c.sh / c.sw;
+      // cookie contact shadow
+      ctx.save(); ctx.translate(cookie.x, cookie.base + 4 * S); ctx.scale(1, .16);
+      g = ctx.createRadialGradient(0, 0, 0, 0, 0, cookie.r * .95);
+      g.addColorStop(0, 'rgba(35,40,20,.42)'); g.addColorStop(1, 'rgba(35,40,20,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, cookie.r * .95, 0, 6.283); ctx.fill(); ctx.restore();
+      ctx.save();
+      ctx.translate(cookie.x, cookie.base + cookie.oy);
+      ctx.rotate(cookie.ang);
+      ctx.scale(1 - cookie.sq * .6, 1 + cookie.sq);
+      ctx.drawImage(c.im, c.sx, c.sy, c.sw, c.sh, -dw / 2, -dh * .86, dw, dh);
+      ctx.restore();
+    }
+
+    drawGroup(groups[1], set);
+    for (const f of flowers) if (f.ry > cookie.base - 6 * S) drawFlower(f);
+    for (const c of crumbs) {
+      const k = c.land ? 1 - Math.min(1, (t - c.land) / .3) : 1;
+      ctx.save(); ctx.globalAlpha = k; ctx.translate(c.x, c.y); ctx.rotate(c.rot); ctx.scale(k * (c.sc || 1), k * (c.sc || 1)); ctx.drawImage(c.sp, -c.w / 2, -c.h / 2, c.w, c.h); ctx.restore();
+    }
+
+    for (const p of particles) {
+      ctx.globalAlpha = clamp(p.life, 0, 1) * .9; ctx.fillStyle = '#F6F1E3';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.283); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(.033, (now - last) / 1000); last = now; t += dt;
+    const a = performance.now(); update(dt); const b = performance.now(); render(); const c = performance.now();
+    stats.upd = stats.upd * .9 + (b - a) * .1; stats.ren = stats.ren * .9 + (c - b) * .1;   // ms, smoothed
+    requestAnimationFrame(frame);
+  }
+  const stats = { upd: 0, ren: 0 };
+
+  // ---- input --------------------------------------------------------------
+  const hint = document.getElementById('hint');
+  const onCookie = (x, y) => cookie.crop && Math.hypot(x - cookie.x, y - (cookie.base - cookie.r * .8)) < cookie.r;
+  function setPtr(e) {
+    const now = performance.now(), dt = Math.max(.008, (now - ptr.lt) / 1000);
+    if (ptr.active) { ptr.vx += ((e.clientX - ptr.lx) / dt - ptr.vx) * .45; ptr.vy += ((e.clientY - ptr.ly) / dt - ptr.vy) * .45; }
+    ptr.x = ptr.lx = e.clientX; ptr.y = ptr.ly = e.clientY; ptr.lt = now; ptr.active = true;
+    cv.style.cursor = onCookie(ptr.x, ptr.y) ? 'pointer' : 'default';
+  }
+  addEventListener('pointermove', e => { setPtr(e); hint.classList.add('gone'); });
+  addEventListener('pointerdown', e => {
+    setPtr(e); ptr.vx = ptr.vy = 0;
+    burst(e.clientX, e.clientY, P.radius * S * 1.7, 700, 6);
+    if (onCookie(e.clientX, e.clientY)) tapCookie();
+  });
+  addEventListener('pointerup', e => { if (e.pointerType === 'touch') ptr.active = false; });
+  document.addEventListener('mouseleave', () => ptr.active = false);
+  addEventListener('blur', () => ptr.active = false);
+  addEventListener('keydown', e => {
+    if (e.key === 'd' || e.key === 'D') panel.classList.toggle('on');
+    if (e.key === 'r' || e.key === 'R') startDrop();
+    if (['1', '2', '3'].includes(e.key)) loadCookie(+e.key - 1);
+  });
+  let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(resize, 120); });
+
+  // ---- tuning panel -------------------------------------------------------
+  const panel = document.getElementById('panel');
+  [['stiffness', 30, 220, 1], ['damping', 2, 20, .5], ['radius', 40, 260, 1], ['strength', .2, 3, .05], ['wind', 0, 3, .05], ['boil', 0, 24, 1], ['count', 800, 12000, 200], ['maxFlowers', 5, 60, 1]]
+    .forEach(([k, min, max, step]) => {
+      const l = document.createElement('label'), v = document.createElement('span'), i = document.createElement('input');
+      l.textContent = k + ' '; i.type = 'range'; i.min = min; i.max = max; i.step = step; i.value = P[k]; v.textContent = P[k];
+      i.oninput = () => { P[k] = +i.value; v.textContent = i.value; if (k === 'count') build(); };
+      l.append(v, i); panel.append(l);
+    });
+
+  resize(); loadCookie(0); requestAnimationFrame(frame);
+  window.__moss = { P, cookie, ptr, stats, tapCookie, get blades() { return blades; }, get flowers() { return flowers; }, get crumbs() { return crumbs; } };   // debug handle
+})();
+</script>
+</body>
+</html>

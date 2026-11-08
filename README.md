@@ -1,36 +1,34 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Moss & Crumb
 
-## Getting Started
+A small playground: a seasonal-cookie homepage drawn on a single Canvas 2D page.
+Autumn 2026 · Season 03 · four flavours (Deep Cacao, Uji Dream, Cloud Taro, Sunny Lemon).
 
-First, run the development server:
+It's a concept piece. Nothing is sold, and the taste-note dots on the cards are placeholders.
+
+## What to try
+
+- Tap the cookie. It crumbles and a little plant grows in the clover garden.
+- Pick another flavour from the tray at the bottom; each one grows its own plant.
+- Try all four, and a Taster Box rises at the garden's corner. Click it (or its Pre-order tag) to "pre-order".
+- The line at the bottom left shows how much of the season is left.
+
+## Run it
+
+The page is one static file, no build step. From the repo root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+python3 -m http.server 5174
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open <http://127.0.0.1:5174/prototype/season.html>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The repo also holds the original Next.js app (`npm install && npm run dev`); the prototype is separate from it.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Files
 
-## Learn More
+- `prototype/season.html` – the page (canvas garden, note card, tray, box)
+- `prototype/moss.html` – the earlier base version
+- `public/image/` – cookie photos
+- `src/` – the Next.js app
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Made for laptop and desktop screens; there is no phone layout.

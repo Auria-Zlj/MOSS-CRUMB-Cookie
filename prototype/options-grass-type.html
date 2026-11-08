@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Options — ground cover and typeface</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300;1,9..144,500&family=Instrument+Serif:ital@0;1&family=Young+Serif&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,600&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --paper:#F1EDE4; --ink:#2B2A26; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:ui-sans-serif,system-ui,-apple-system,sans-serif; padding:28px 32px 60px; }
+  h2 { font-size:11px; letter-spacing:.18em; text-transform:uppercase; font-weight:500; margin:0 0 16px; opacity:.7; }
+  .grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:18px; margin-bottom:48px; }
+  .cell canvas { width:100%; height:auto; display:block; border-radius:10px; background:#E6E2D3; }
+  .cell b { display:block; margin:10px 0 3px; font-size:13px; font-weight:500; } .cell span { font-size:12px; opacity:.65; line-height:1.45; display:block; }
+  .type { display:grid; grid-template-columns:repeat(2, 1fr); gap:18px; }
+  .spec { background:#E9E5D8; border-radius:12px; padding:26px 28px 22px; }
+  .spec .n { font-size:56px; line-height:1; margin:10px 0 12px; }
+  .spec .eb { font-size:11px; letter-spacing:.16em; text-transform:uppercase; opacity:.75; }
+  .spec p { margin:0 0 14px; font-size:15px; opacity:.78; }
+  .spec .row { display:flex; gap:22px; align-items:baseline; flex-wrap:wrap; }
+  .spec .row div { font-size:40px; line-height:1.05; }
+  .spec small { display:block; margin-top:14px; font-size:12px; opacity:.6; }
+  @media (max-width:900px) { .grid { grid-template-columns:repeat(2,1fr); } .type { grid-template-columns:1fr; } }
+</style></head><body>
+
+<h2>Ground cover — six alternatives to the current blade pelt</h2>
+<div class="grid" id="grid"></div>
+
+<h2>Typeface for the flavour name — same word, same colour, four voices</h2>
+<div class="type">
+  <div class="spec"><div class="eb">A · Fraunces — soft, warm serif</div>
+    <div class="n" style="font-family:'Fraunces',serif;font-weight:300;color:#587A2C;font-variation-settings:'opsz' 144">Uji Dream</div>
+    <p style="font-family:'Fraunces',serif;font-style:italic;font-weight:300">Stone-ground matcha, soft in the middle.</p>
+    <div class="row"><div style="font-family:'Fraunces',serif;font-weight:500;color:#5A3A28">Deep Cacao</div><div style="font-family:'Fraunces',serif;font-style:italic;font-weight:300;color:#7A5FA0">Cloud Taro</div></div><small>Bakery / premium feel, friendly. My pick for “healthy but luxurious”.</small></div>
+  <div class="spec"><div class="eb">B · Instrument Serif — tall, editorial</div>
+    <div class="n" style="font-family:'Instrument Serif',serif;font-size:68px;color:#587A2C">Uji Dream</div>
+    <p style="font-family:'Instrument Serif',serif;font-style:italic;font-size:19px">Stone-ground matcha, soft in the middle.</p>
+    <div class="row"><div style="font-family:'Instrument Serif',serif;font-size:50px;color:#5A3A28">Deep Cacao</div><div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:50px;color:#7A5FA0">Cloud Taro</div></div><small>Magazine / fashion-brand feel, very sharp, a little cool.</small></div>
+  <div class="spec"><div class="eb">C · Young Serif — chunky, appetising</div>
+    <div class="n" style="font-family:'Young Serif',serif;font-size:50px;color:#587A2C">Uji Dream</div>
+    <p style="font-family:'Young Serif',serif;font-size:14px">Stone-ground matcha, soft in the middle.</p>
+    <div class="row"><div style="font-family:'Young Serif',serif;font-size:34px;color:#5A3A28">Deep Cacao</div><div style="font-family:'Young Serif',serif;font-size:34px;color:#7A5FA0">Cloud Taro</div></div><small>Heavier and friendlier, reads fast, most “sells the product”.</small></div>
+  <div class="spec"><div class="eb">D · Bricolage Grotesque + handwriting note</div>
+    <div class="n" style="font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:50px;letter-spacing:-.03em;color:#587A2C">Uji Dream</div>
+    <p style="font-family:'Caveat',cursive;font-size:26px;font-weight:600;color:#587A2C;transform:rotate(-2deg);transform-origin:left">stone-ground matcha, soft in the middle</p>
+    <div class="row"><div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:34px;letter-spacing:-.03em;color:#5A3A28">Deep Cacao</div><div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:34px;letter-spacing:-.03em;color:#7A5FA0">Cloud Taro</div></div><small>Playful modern sans plus a hand-written line like your Hero’s annotations.</small></div>
+</div>
+
+<script>
+const R = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const TAU = 6.283, W = 420, H = 300;
+const GREENS = ['#3F5A2E', '#5A8052', '#6F8F38', '#8DAA46', '#A8BC5C'];
+function mk(id, seed, label, note, draw) {
+  const cell = document.createElement('div'); cell.className = 'cell';
+  const c = document.createElement('canvas'); c.width = W * 2; c.height = H * 2;
+  const x = c.getContext('2d'); x.scale(2, 2); x.fillStyle = '#F1EDE4'; x.fillRect(0, 0, W, H);
+  const g = x.createRadialGradient(W / 2, H * .5, 0, W / 2, H * .5, W * .5); g.addColorStop(0, 'rgba(206,216,170,.55)'); g.addColorStop(1, 'rgba(206,216,170,0)'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  const r = R(seed), cx = W / 2, cy = H * .62, RX = 150, RY = 52;
+  x.fillStyle = 'rgba(108,126,66,.32)'; x.beginPath(); x.ellipse(cx, cy, RX * .98, RY * 1.02, 0, 0, TAU); x.fill();
+  const spot = () => { let a = r() * TAU, q = Math.sqrt(r()); return { x: cx + Math.cos(a) * RX * q, y: cy + Math.sin(a) * RY * q * (Math.sin(a) < 0 ? 1.5 : 1), q, a }; };
+  const tone = p => Math.max(0, Math.min(4, Math.floor(((Math.sin(p.x * .02 + 1) + Math.sin(p.y * .04 + 2) + 2) / 4 + (r() - .5) * .3) * 5)));
+  draw(x, r, spot, tone, cx, cy, RX, RY);
+  cell.append(c); cell.insertAdjacentHTML('beforeend', `<b>${label}</b><span>${note}</span>`);
+  document.getElementById('grid').append(cell);
+}
+const blade = (x, X, Y, h, lean, curv, col, w) => { x.strokeStyle = col; x.lineWidth = w; x.lineCap = 'round'; x.beginPath(); x.moveTo(X, Y); x.quadraticCurveTo(X + lean * .3 + curv * h * .3, Y - h * .62, X + lean, Y - h); x.stroke(); };
+
+// A: the current look, for comparison
+mk('a', 1, 'A · Blade pelt (current)', 'Short upright blades in soft colour patches.', (x, r, spot, tone) => {
+  for (let i = 0; i < 330; i++) { const p = spot(), n = 9, h = 7 + (1 - p.q * p.q) * 9, c = tone(p); for (let j = 0; j < n; j++) { const a = (r() - .5) * 1.1; blade(x, p.x + (r() - .5) * 6, p.y + (r() - .5) * 4, Math.cos(a) * h * (.75 + r() * .6), Math.sin(a) * h, (r() - .5), GREENS[r() < .7 ? c : Math.min(4, c + 1)], 1.1); } }
+});
+
+// B: grain — wheat and oat ears among low blades (autumn, and a nod to "crumb")
+mk('b', 2, 'B · Wheat & oat ears', 'Autumn grain: golden-green ears leaning in the breeze, low blades underneath. Ties to the “crumb / grain” story.', (x, r, spot, tone) => {
+  for (let i = 0; i < 170; i++) { const p = spot(), c = tone(p); for (let j = 0; j < 8; j++) { const a = (r() - .5) * 1; blade(x, p.x + (r() - .5) * 6, p.y + (r() - .5) * 3, Math.cos(a) * 9 * (.7 + r() * .6), Math.sin(a) * 9, r() - .5, GREENS[Math.min(4, c)], 1.1); } }
+  const stems = []; for (let i = 0; i < 54; i++) stems.push(spot()); stems.sort((a, b) => a.y - b.y);
+  for (const p of stems) {
+    const h = 40 + r() * 34, lean = (r() - .5) * 26, curv = (r() - .5) * 1.2, gold = r() < .72;
+    x.strokeStyle = gold ? '#A9A04A' : '#7E9440'; x.lineWidth = 1.1; x.lineCap = 'round'; x.beginPath(); x.moveTo(p.x, p.y); x.quadraticCurveTo(p.x + lean * .3 + curv * 12, p.y - h * .6, p.x + lean, p.y - h); x.stroke();
+    const tx = p.x + lean, ty = p.y - h, ang = Math.atan2(-(h * .4), lean * .7 + curv * 5), L = 15;
+    for (let k = 0; k < 7; k++) for (const sd of [-1, 1]) { const u = k / 7, bx = tx - Math.cos(ang) * L * (1 - u) + 0, by = ty - Math.sin(ang) * L * (1 - u); const ox = Math.cos(ang + sd * 1.1) * 3.2, oy = Math.sin(ang + sd * 1.1) * 3.2;
+      x.fillStyle = gold ? (k % 2 ? '#D3B658' : '#C2A546') : '#9DB352'; x.beginPath(); x.ellipse(bx + ox, by + oy, 3.4, 1.5, ang + sd * 1.0, 0, TAU); x.fill(); }
+    x.strokeStyle = gold ? 'rgba(190,160,70,.8)' : 'rgba(140,170,80,.8)'; x.lineWidth = .6; for (const sd of [-.2, 0, .2]) { x.beginPath(); x.moveTo(tx, ty); x.lineTo(tx + Math.cos(ang + sd) * 11, ty + Math.sin(ang + sd) * 11 - 3); x.stroke(); }
+  }
+});
+
+// C: clover carpet
+mk('c', 3, 'C · Clover carpet', 'Round three-lobed leaves with a pale chevron, overlapped like a lawn of clover. Soft, rounded, very “healthy”.', (x, r, spot, tone) => {
+  const L = []; for (let i = 0; i < 330; i++) L.push(spot()); L.sort((a, b) => a.y - b.y);
+  for (const p of L) { const c = tone(p), s = 5 + r() * 3 + (1 - p.q) * 2, rot = r() * TAU; x.fillStyle = GREENS[c]; x.strokeStyle = 'rgba(40,70,25,.4)'; x.lineWidth = .7;
+    for (let k = 0; k < 3; k++) { const a = rot + k * TAU / 3, lx = p.x + Math.cos(a) * s * .7, ly = p.y + Math.sin(a) * s * .4 - 2; x.beginPath(); x.ellipse(lx, ly, s * .72, s * .5, a * .5, 0, TAU); x.fill(); x.stroke();
+      x.strokeStyle = 'rgba(220,235,170,.55)'; x.beginPath(); x.arc(lx, ly + 1, s * .32, Math.PI * 1.15, Math.PI * 1.85); x.stroke(); x.strokeStyle = 'rgba(40,70,25,.4)'; } }
+  for (let i = 0; i < 16; i++) { const p = spot(); x.fillStyle = '#FBF6E6'; x.beginPath(); x.arc(p.x, p.y - 8, 3.2, 0, TAU); x.fill(); x.fillStyle = '#F2D77A'; x.beginPath(); x.arc(p.x, p.y - 8, 1.1, 0, TAU); x.fill(); }
+});
+
+// D: fern fronds
+mk('d', 4, 'D · Fern fronds', 'Arching fronds with fine leaflets, a few curled fiddleheads. Lush, “forest floor”.', (x, r, spot, tone) => {
+  const F = []; for (let i = 0; i < 70; i++) F.push(spot()); F.sort((a, b) => a.y - b.y);
+  for (const p of F) { const c = tone(p), h = 22 + r() * 30, lean = (r() - .5) * 42, col = GREENS[c]; const px = u => p.x + lean * u * u + (u * (1 - u)) * 0, py = u => p.y - h * Math.sin(u * 1.5);
+    x.strokeStyle = col; x.lineWidth = 1.2; x.lineCap = 'round'; x.beginPath(); for (let u = 0; u <= 1.001; u += .05) u ? x.lineTo(px(u), py(u)) : x.moveTo(px(u), py(u)); x.stroke();
+    for (let u = .12; u < 1; u += .075) { const len = 10 * (1 - u * .8) + 1.5, dx = px(u + .02) - px(u - .02), dy = py(u + .02) - py(u - .02), a = Math.atan2(dy, dx);
+      for (const sd of [-1, 1]) { x.beginPath(); x.moveTo(px(u), py(u)); x.lineTo(px(u) + Math.cos(a + sd * 1.15) * len, py(u) + Math.sin(a + sd * 1.15) * len); x.stroke(); } } }
+  for (let i = 0; i < 7; i++) { const p = spot(); x.strokeStyle = GREENS[0]; x.lineWidth = 1.4; x.beginPath(); x.moveTo(p.x, p.y); x.lineTo(p.x, p.y - 14); x.arc(p.x + 3, p.y - 14, 3, Math.PI, Math.PI * 2.6); x.stroke(); }
+});
+
+// E: pincushion tufts
+mk('e', 5, 'E · Pincushion tufts', 'Soft round cushions covered in fine hair strokes, bunched together. Closest to real “cushion moss”.', (x, r, spot, tone) => {
+  const B = []; for (let i = 0; i < 24; i++) B.push(spot()); B.sort((a, b) => a.y - b.y);
+  for (const p of B) { const q = 17 + r() * 14 - p.q * 5, c = tone(p), cx0 = p.x, cy0 = p.y - q * .3;
+    x.fillStyle = 'rgba(40,60,25,.18)'; x.beginPath(); x.ellipse(cx0 + 2, cy0 + q * .62, q * .95, q * .24, 0, 0, TAU); x.fill();
+    x.fillStyle = GREENS[Math.max(0, c - 1)]; x.beginPath(); x.ellipse(cx0, cy0, q, q * .78, 0, Math.PI, 0); x.lineTo(cx0 + q, cy0 + q * .2); x.lineTo(cx0 - q, cy0 + q * .2); x.fill();
+    x.lineCap = 'round'; x.lineWidth = 1; const n = Math.round(q * q * .5);
+    for (let i = 0; i < n; i++) { const a = Math.PI + r() * Math.PI, rr = q * Math.sqrt(r()) * .97, px = cx0 + Math.cos(a) * rr, py = cy0 + Math.sin(a) * rr * .78, len = 3 + r() * 3.5, s = .5 - (Math.cos(a) * .4 - Math.sin(a) * .7) * (rr / q) * .5 + (r() - .5) * .5;
+      x.strokeStyle = GREENS[Math.max(0, Math.min(4, Math.floor((s + c * .12) * 4.2)))]; x.beginPath(); x.moveTo(px, py); x.lineTo(px + Math.cos(a) * len * .6, py + Math.sin(a) * len); x.stroke(); } }
+});
+
+// F: star moss rosettes
+mk('f', 6, 'F · Star-moss rosettes', 'Tiny star-shaped rosettes packed together, like a real haircap moss seen from above. Dense, fine, unmistakably moss.', (x, r, spot, tone) => {
+  const S2 = []; for (let i = 0; i < 520; i++) S2.push(spot()); S2.sort((a, b) => a.y - b.y);
+  for (const p of S2) { const c = tone(p), n = 7 + Math.floor(r() * 3), rr = 5 + r() * 2.5 + (1 - p.q) * 1.5, rot = r() * TAU;
+    x.lineCap = 'round'; x.lineWidth = 1.6;
+    for (let k = 0; k < n; k++) { const a = rot + k * TAU / n; x.strokeStyle = GREENS[k % 2 ? c : Math.min(4, c + 1)]; x.beginPath(); x.moveTo(p.x, p.y - 2); x.lineTo(p.x + Math.cos(a) * rr, p.y - 2 + Math.sin(a) * rr * .5); x.stroke(); }
+    x.fillStyle = GREENS[Math.max(0, c - 1)]; x.beginPath(); x.arc(p.x, p.y - 2, 1.4, 0, TAU); x.fill(); }
+});
+</script></body></html>

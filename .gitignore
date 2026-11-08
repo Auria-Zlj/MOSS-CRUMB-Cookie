@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# prototype working files (screenshots, old backups)
+/prototype/*.png
+!/prototype/logo-crop.png
+/prototype/old/

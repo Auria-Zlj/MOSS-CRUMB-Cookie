@@ -1,0 +1,37 @@
+<!doctype html><meta charset="utf-8"><title>Plant options</title>
+<style>body{margin:0;background:#fff;font:14px system-ui;padding:20px;color:#222}h1{font-size:15px;margin:0 0 12px}
+.g{display:grid;grid-template-columns:90px repeat(3,1fr);gap:10px;align-items:center}.g b{font-weight:600}
+canvas{width:100%;display:block;border:1px solid #ddd;border-radius:8px}.h{color:#777;font-size:12px}</style>
+<h1>How the things that grow could look (each column is one flavour, each row is one style). Pick a row, or mix: e.g. "cacao from A, matcha from C".</h1>
+<div class="g" id="g"></div>
+<script>
+const TAU=6.283,PAPER='#E4E1D0',G=['#3F5A2E','#5A8052','#6F8F38','#8DAA46'];
+function R(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function leaf(x,cx,cy,s,c,rot){x.save();x.translate(cx,cy);x.rotate(rot);x.fillStyle=c;x.beginPath();x.ellipse(-s*.5,0,s*.55,s*.62,0,0,TAU);x.ellipse(s*.5,0,s*.55,s*.62,0,0,TAU);x.ellipse(0,-s*.55,s*.55,s*.62,0,0,TAU);x.fill();x.restore()}
+function bed(x,r){x.fillStyle=PAPER;x.fillRect(0,0,400,240);for(let i=0;i<70;i++){const px=20+r()*360,py=150+r()*70;leaf(x,px,py,9+r()*4,G[Math.floor(r()*4)],r()*6)}}
+function stem(x,x0,y0,h,col,w,lean){x.strokeStyle=col;x.lineWidth=w;x.lineCap='round';x.beginPath();x.moveTo(x0,y0);x.quadraticCurveTo(x0+lean*.3,y0-h*.6,x0+lean,y0-h);x.stroke();return[x0+lean,y0-h]}
+function frontLeaves(x,r,px,py){for(let i=0;i<5;i++)leaf(x,px+(r()-.5)*40,py+r()*8,6+r()*2,G[Math.floor(r()*4)],r()*6)}
+// ---- mushrooms ----
+function mush(x,px,py,st,r){
+ if(st==='A'){const[hx,hy]=stem(x,px,py,13,'#EDE3CD',3,1);x.fillStyle='#8A5A3E';x.beginPath();x.ellipse(hx,hy,7,5.2,0,Math.PI,0);x.fill();x.fillStyle='#F3E7CF';x.beginPath();x.arc(hx-2,hy-2.5,1.2,0,TAU);x.fill()}
+ if(st==='B'){x.fillStyle='#8A5A3E';x.beginPath();x.ellipse(px,py,8,6,0,Math.PI,0);x.fill();x.fillStyle='#EDE3CD';x.fillRect(px-2,py,4,4)}
+ if(st==='C'){const[hx,hy]=stem(x,px,py,34,'#7FA06A',1.5,2);x.fillStyle='#8A5A3E';x.beginPath();x.ellipse(hx,hy,5.5,4.5,0,Math.PI,0);x.lineTo(hx+5.5,hy+1);x.quadraticCurveTo(hx,hy+4,hx-5.5,hy+1);x.fill();x.fillStyle='#F3E7CF';x.beginPath();x.arc(hx-1.5,hy-2,1,0,TAU);x.fill()}}
+// ---- tea ----
+function tea(x,px,py,st,r){
+ const blade=(hx,hy,rot,col,s)=>{x.save();x.translate(hx,hy);x.rotate(rot);x.fillStyle=col;x.beginPath();x.moveTo(0,0);x.quadraticCurveTo(s*.95,-s*.5,s*.3,-s*1.9);x.quadraticCurveTo(-s*.25,-s*.7,0,0);x.fill();x.restore()};
+ if(st==='A'){const[hx,hy]=stem(x,px,py,14,'#7FA06A',1.6,0);blade(hx,hy,-.5,'#9DBA55',5.5);blade(hx,hy,.5,'#B6CD74',5.5)}
+ if(st==='B'){blade(px,py+2,-.55,'#8FB04A',6.5);blade(px,py+2,.55,'#A9C466',6.5)}
+ if(st==='C'){const[hx,hy]=stem(x,px,py,34,'#7FA06A',1.5,-2);blade(hx,hy,-.5,'#9DBA55',6);blade(hx,hy,.5,'#B6CD74',6);x.fillStyle='#E4EDB0';x.beginPath();x.ellipse(hx,hy-5,1.6,3.6,0,0,TAU);x.fill()}}
+// ---- taro ----
+function taro(x,px,py,st,r){
+ const heart=(hx,hy,s,col,rot)=>{x.save();x.translate(hx,hy);x.rotate(rot);x.beginPath();x.moveTo(0,0);x.bezierCurveTo(-s*.2,-s*.55,-s*1.0,-s*.35,-s*.85,s*.35);x.bezierCurveTo(-s*.7,s*.8,-s*.2,s*1.0,0,s*1.45);x.bezierCurveTo(s*.2,s*1.0,s*.7,s*.8,s*.85,s*.35);x.bezierCurveTo(s*1.0,-s*.35,s*.2,-s*.55,0,0);x.fillStyle=col;x.fill();x.restore()};
+ if(st==='A'){const[hx,hy]=stem(x,px,py,13,'#8FA886',1.6,3);heart(hx,hy,6,'#8FB09A',1.2)}
+ if(st==='B'){heart(px,py+3,6.5,'#9C85BE',.5)}
+ if(st==='C'){const[hx,hy]=stem(x,px,py,34,'#7FA06A',1.5,2);x.fillStyle='#A58CC7';x.beginPath();x.moveTo(hx-5,hy);x.quadraticCurveTo(hx,hy-8,hx+5,hy);x.quadraticCurveTo(hx,hy+5,hx-5,hy);x.fill()}}
+const rows=[['A','A · low and quiet','short stems, moss colours, all at clover height'],['B','B · flat shapes','no stems, sit in the clover like leaves, flavour colour only'],['C','C · same-height family','one stem length for all, each with a small head, like the white flowers']];
+const fl=[mush,tea,taro],g=document.getElementById('g');g.insertAdjacentHTML('beforeend','<span></span><b>Deep Cacao</b><b>Uji Dream</b><b>Cloud Taro</b>');
+for(const[st,name,desc]of rows){g.insertAdjacentHTML('beforeend',`<div><b>${name}</b><div class="h">${desc}</div></div>`);
+ fl.forEach((fn,i)=>{const c=document.createElement('canvas');c.width=800;c.height=480;const x=c.getContext('2d');x.scale(2,2);const r=R(7+i);bed(x,r);
+  const r2=R(40+i);[[85,195],[160,185],[235,195],[310,185]].forEach(([px,py])=>{x.save();x.translate(px,py);x.scale(2.6,2.6);x.translate(-px,-py);fn(x,px+(r2()-.5)*8,py,st,r2);x.restore()});[90,165,240,315].forEach(q=>{for(let i=0;i<4;i++)leaf(x,q+(r2()-.5)*30,200+r2()*10,9+r2()*3,G[Math.floor(r2()*4)],r2()*6)});
+  g.appendChild(c)})}
+</script>
